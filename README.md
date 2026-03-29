@@ -1,106 +1,70 @@
-# Assignment Memorizer
+# football-assignment-trainer
 
-アメリカンフットボールのオフェンス学習用に、初期配置から各ポジションの動きを線で覚えるための Next.js アプリです。
+アメリカンフットボールの体系作成、プレー作成、学習、テストをまとめた Next.js アプリです。
 
-## 主な機能
-
-- プレー一覧表示
-- プレー詳細で正解動線を確認
-- フィールド上に自分で線を描いて判定
-- 苦手なプレー、ポジションの優先復習
-- localStorage 保存
-- プレーデータの JSON 編集
-
-## 技術スタック
+## 技術構成
 
 - Next.js
 - React
 - TypeScript
 - Tailwind CSS
+- Supabase
 
-## フォルダ構成
-
-```text
-football-assignment-trainer/
-├─ app/
-│  ├─ editor/
-│  ├─ plays/
-│  │  └─ [id]/
-│  ├─ quiz/
-│  ├─ review/
-│  ├─ globals.css
-│  ├─ layout.tsx
-│  └─ page.tsx
-├─ components/
-├─ data/
-├─ lib/
-├─ types/
-├─ README.md
-├─ package.json
-├─ next.config.ts
-├─ postcss.config.mjs
-├─ tsconfig.json
-└─ 起動用.bat
-```
-
-## データ構造
-
-`data/plays.ts` では、各プレーが次の情報を持ちます。
-
-- `id`
-- `name`
-- `formation`
-- `type`
-- `tags`
-- `coachingPoints`
-- `commonMistakes`
-- `movements`
-
-`movements` の各ポジションは次を持ちます。
-
-- `start`: 初期位置
-- `path`: 正解の動線
-- `kind`: block / route / carry / fake / handoff
-- `summary`
-- `coachingTip`
-
-## 起動方法
-
-Node.js 20 以上を入れたあと、次のどちらかで起動できます。
+## ローカル起動
 
 ```bash
-cd football-assignment-trainer
 npm install
 npm run dev
 ```
 
-または [起動用.bat](C:/Users/81804/OneDrive/ドキュメント/New%20project/football-assignment-trainer/起動用.bat) をダブルクリックしてください。
+## 共有保存について
 
-ブラウザで `http://localhost:3000` を開きます。
+このアプリは次の 2 モードで動きます。
 
-## 主要ファイル
+- `NEXT_PUBLIC_SHARED_STORAGE_ENABLED=false` または未設定
+  - これまでどおり `localStorage` 保存
+- `NEXT_PUBLIC_SHARED_STORAGE_ENABLED=true`
+  - `/api/shared-state` 経由で Supabase に共有保存
 
-- `app/page.tsx`: ホーム
-- `app/plays/page.tsx`: プレー一覧
-- `app/plays/[id]/page.tsx`: プレー詳細
-- `app/quiz/page.tsx`: 動線トレーナー
-- `app/review/page.tsx`: 苦手復習
-- `app/editor/page.tsx`: JSON 編集画面
-- `data/plays.ts`: サンプルプレーデータ
-- `lib/training.ts`: 動線判定と出題ロジック
-- `lib/storage.ts`: localStorage 保存
-- `types/play.ts`: 型定義
+## 環境変数
 
-## 今後の拡張案
+[.env.example](C:/Users/81804/OneDrive/ドキュメント/New%20project/football-assignment-trainer/.env.example) を参考に `.env.local` を作成してください。
 
-- ドラッグ描画対応
-- 中継点ごとの厳密判定
-- フォーメーション別テンプレート
-- 守備側の動線追加
-- DB 化とユーザー管理
+必要な値:
 
-## 改善ポイント
+- `NEXT_PUBLIC_SHARED_STORAGE_ENABLED=true`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
 
-- 今はクリックで折れ線を作る最小実装です
-- JSON 編集は初心者向け UI ではないので、将来は専用フォーム化したいです
-- 採点は距離ベースの簡易判定なので、今後は角度やタイミングも評価できます
+## Supabase 設定
+
+1. Supabase プロジェクトを作成
+2. SQL Editor で [supabase/schema.sql](C:/Users/81804/OneDrive/ドキュメント/New%20project/football-assignment-trainer/supabase/schema.sql) を実行
+3. `.env.local` に環境変数を入れる
+
+このアプリは `public.shared_app_state` テーブルの `global` 行に、体系・プレー・テストをまとめて保存します。
+
+## Vercel 設定
+
+Vercel の Project Settings で次の環境変数を追加してください。
+
+- `NEXT_PUBLIC_SHARED_STORAGE_ENABLED`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+追加後に Redeploy すれば、公開サイト上でも同じデータを共有できます。
+
+## 主な保存データ
+
+- 使用する体系
+- 相手の体形
+- プレー
+- テスト
+- 最近消去した体系
+- 最近消去したプレー
+
+## 注意
+
+- `study-session` や `test-session` の選択状態はローカル保持です
+- 編集保護パスワードは現在コード内の共通値です
+- 本格運用する場合は認証追加をおすすめします

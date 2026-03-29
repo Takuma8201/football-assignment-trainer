@@ -15,18 +15,20 @@ export default function TestCreatePage() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const refresh = () => {
-      setPlays(getPlayDrafts());
-      setSystems(getOffensePackages());
+    const refresh = async () => {
+      const [nextPlays, nextSystems] = await Promise.all([getPlayDrafts(), getOffensePackages()]);
+      setPlays(nextPlays);
+      setSystems(nextSystems);
     };
 
-    refresh();
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", refresh);
+    void refresh();
+    const handleRefresh = () => void refresh();
+    window.addEventListener("focus", handleRefresh);
+    document.addEventListener("visibilitychange", handleRefresh);
 
     return () => {
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", handleRefresh);
+      document.removeEventListener("visibilitychange", handleRefresh);
     };
   }, []);
 
@@ -39,7 +41,7 @@ export default function TestCreatePage() {
   const getSystemName = (offensePackageId?: string) =>
     systems.find((system) => system.id === offensePackageId)?.name ?? "未設定";
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const trimmedName = name.trim();
 
     if (!trimmedName) {
@@ -52,7 +54,7 @@ export default function TestCreatePage() {
       return;
     }
 
-    saveTest({
+    await saveTest({
       id: `test-${Date.now()}`,
       name: trimmedName,
       playIds: selectedPlayIds,

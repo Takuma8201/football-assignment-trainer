@@ -31,18 +31,20 @@ export default function StudySelectPage() {
   const [selectedPlayIds, setSelectedPlayIds] = useState<string[]>([]);
 
   useEffect(() => {
-    const refresh = () => {
-      setSystems(getOffensePackages());
-      setPlays(getPlayDrafts());
+    const refresh = async () => {
+      const [nextSystems, nextPlays] = await Promise.all([getOffensePackages(), getPlayDrafts()]);
+      setSystems(nextSystems);
+      setPlays(nextPlays);
     };
 
-    refresh();
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", refresh);
+    void refresh();
+    const handleRefresh = () => void refresh();
+    window.addEventListener("focus", handleRefresh);
+    document.addEventListener("visibilitychange", handleRefresh);
 
     return () => {
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", handleRefresh);
+      document.removeEventListener("visibilitychange", handleRefresh);
     };
   }, []);
 

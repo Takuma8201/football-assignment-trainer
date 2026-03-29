@@ -1,6 +1,13 @@
 "use client";
 
-import { OffenseVariant } from "@/lib/system-storage";
+import {
+  type OffenseVariant
+} from "@/lib/system-storage";
+import {
+  type SharedDeletedRecord,
+  loadSharedAppState,
+  saveSharedAppState
+} from "@/lib/shared-app-state";
 
 type PathPoint = {
   x: number;
@@ -47,79 +54,136 @@ const PLAY_STORAGE_KEY = "football-play-drafts";
 const DELETED_PLAY_STORAGE_KEY = "football-play-drafts-deleted";
 const DELETE_RETENTION_MS = 24 * 60 * 60 * 1000;
 
-type DeletedPlayDraft = {
-  deletedAt: number;
-  item: SavedPlayDraft;
-};
+type DeletedPlayDraft = SharedDeletedRecord<SavedPlayDraft>;
 
-const getRecords = (): SavedPlayDraft[] => {
+const normalizePlayDrafts = (value: unknown): SavedPlayDraft[] =>
+  Array.isArray(value) ? (value as SavedPlayDraft[]) : [];
+
+const normalizeDeletedPlayDrafts = (value: unknown): DeletedPlayDraft[] =>
+  Array.isArray(value) ? (value as DeletedPlayDraft[]) : [];
+
+const getLocalRecords = (): SavedPlayDraft[] => {
   if (typeof window === "undefined") {
     return [];
   }
 
   try {
     const raw = window.localStorage.getItem(PLAY_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as SavedPlayDraft[]) : [];
+    return normalizePlayDrafts(raw ? JSON.parse(raw) : []);
   } catch {
     return [];
   }
 };
 
-const getDeletedRecords = (): DeletedPlayDraft[] => {
+const getLocalDeletedRecords = (): DeletedPlayDraft[] => {
   if (typeof window === "undefined") {
     return [];
   }
 
   try {
     const raw = window.localStorage.getItem(DELETED_PLAY_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as DeletedPlayDraft[]) : [];
+    return normalizeDeletedPlayDrafts(raw ? JSON.parse(raw) : []);
   } catch {
     return [];
   }
 };
 
-const saveDeletedRecords = (records: DeletedPlayDraft[]) => {
+const saveLocalRecords = (records: SavedPlayDraft[]) => {
+  window.localStorage.setItem(PLAY_STORAGE_KEY, JSON.stringify(records));
+  return records;
+};
+
+const saveLocalDeletedRecords = (records: DeletedPlayDraft[]) => {
   window.localStorage.setItem(DELETED_PLAY_STORAGE_KEY, JSON.stringify(records));
   return records;
 };
 
-const purgeExpiredDeletedRecords = () => {
+const purgeExpiredDeletedRecords = (records: DeletedPlayDraft[]) => {
   const now = Date.now();
-  const next = getDeletedRecords().filter((record) => now - record.deletedAt <= DELETE_RETENTION_MS);
-  saveDeletedRecords(next);
-  return next;
+  return records.filter((record) => now - record.deletedAt <= DELETE_RETENTION_MS);
 };
 
 export const getPlayDrafts = () => {
-  purgeExpiredDeletedRecords();
-  return getRecords();
+  const shared = loadSharedAppState();
+
+  if (shared) {
+    return normalizePlayDrafts(shared.playDrafts);
+  }
+
+  return getLocalRecords();
 };
 
-export const getPlayDraftById = (id: string) => getRecords().find((item) => item.id === id) ?? null;
+export const getPlayDraftById = (id: string) =>
+  getPlayDrafts().find((item) => item.id === id) ?? null;
 
-export const getDeletedPlayDrafts = () => purgeExpiredDeletedRecords();
+export const getDeletedPlayDrafts = () => {
+  const shared = loadSharedAppState();
 
-export const savePlayDraft = (draft: SavedPlayDraft) => {
-  const current = getRecords().filter((item) => item.id !== draft.id);
-  const next = [draft, ...current];
-  window.localStorage.setItem(PLAY_STORAGE_KEY, JSON.stringify(next));
+  if (shared) {
+    return purgeExpiredDeletedRecords(normalizeDeletedPlayDrafts(shared.deletedPlayDrafts));
+  }
+
+  const next = purgeExpiredDeletedRecords(getLocalDeletedRecords());
+  saveLocalDeletedRecords(next);
   return next;
 };
 
+export const savePlayDraft = (draft: SavedPlayDraft) => {
+  const shared = loadSharedAppState();
+
+  if (shared) {
+    const current = normalizePlayDrafts(shared.playDrafts).filter((item) => item.id !== draft.id);
+    const next = [draft, ...current];
+    saveSharedAppState({
+      ...shared,
+      playDrafts: next
+    });
+    return next;
+  }
+
+  const current = getLocalRecords().filter((item) => item.id !== draft.id);
+  return saveLocalRecords([draft, ...current]);
+};
+
 export const deletePlayDraft = (id: string) => {
-  const current = getRecords();
+  const shared = loadSharedAppState();
+
+  if (shared) {
+    const current = normalizePlayDrafts(shared.playDrafts);
+    const target = current.find((item) => item.id === id);
+    const next = current.filter((item) => item.id !== id);
+
+    saveSharedAppState({
+      ...shared,
+      playDrafts: next,
+      deletedPlayDrafts: target
+        ? [
+            {
+              deletedAt: Date.now(),
+              item: target
+            },
+            ...purgeExpiredDeletedRecords(normalizeDeletedPlayDrafts(shared.deletedPlayDrafts)).filter(
+              (record) => record.item.id !== id
+            )
+          ]
+        : purgeExpiredDeletedRecords(normalizeDeletedPlayDrafts(shared.deletedPlayDrafts))
+    });
+
+    return next;
+  }
+
+  const current = getLocalRecords();
   const target = current.find((item) => item.id === id);
   const next = current.filter((item) => item.id !== id);
-  window.localStorage.setItem(PLAY_STORAGE_KEY, JSON.stringify(next));
+  saveLocalRecords(next);
 
   if (target) {
-    const deleted = purgeExpiredDeletedRecords();
-    saveDeletedRecords([
+    saveLocalDeletedRecords([
       {
         deletedAt: Date.now(),
         item: target
       },
-      ...deleted.filter((record) => record.item.id !== id)
+      ...purgeExpiredDeletedRecords(getLocalDeletedRecords()).filter((record) => record.item.id !== id)
     ]);
   }
 

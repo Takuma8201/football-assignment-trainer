@@ -77,12 +77,15 @@ export default function EditorPage() {
     }
   };
 
-  const refreshSavedItems = () => {
-    const nextOffensePackages = getOffensePackages();
-    const nextDefenseSystems = getDefenseSystems();
-    const nextPlays = getPlayDrafts();
-    const nextDeletedSystems = getDeletedSavedSystems();
-    const nextDeletedPlays = getDeletedPlayDrafts();
+  const refreshSavedItems = async () => {
+    const [nextOffensePackages, nextDefenseSystems, nextPlays, nextDeletedSystems, nextDeletedPlays] =
+      await Promise.all([
+        getOffensePackages(),
+        getDefenseSystems(),
+        getPlayDrafts(),
+        getDeletedSavedSystems(),
+        getDeletedPlayDrafts()
+      ]);
     const draftSelection = getPlayDraftSelection();
 
     setOffensePackages(nextOffensePackages);
@@ -109,13 +112,14 @@ export default function EditorPage() {
   };
 
   useEffect(() => {
-    refreshSavedItems();
-    window.addEventListener("focus", refreshSavedItems);
-    document.addEventListener("visibilitychange", refreshSavedItems);
+    void refreshSavedItems();
+    const handleRefresh = () => void refreshSavedItems();
+    window.addEventListener("focus", handleRefresh);
+    document.addEventListener("visibilitychange", handleRefresh);
 
     return () => {
-      window.removeEventListener("focus", refreshSavedItems);
-      document.removeEventListener("visibilitychange", refreshSavedItems);
+      window.removeEventListener("focus", handleRefresh);
+      document.removeEventListener("visibilitychange", handleRefresh);
     };
   }, []);
 
@@ -165,7 +169,7 @@ export default function EditorPage() {
   const getDefenseSystemName = (id?: string) =>
     defenseSystems.find((item) => item.id === id)?.name ?? "未設定";
 
-  const handleDeleteSystem = (category: "system" | "opponent-front", id: string) => {
+  const handleDeleteSystem = async (category: "system" | "opponent-front", id: string) => {
     const allowed = requestActionPassword("体系を消去するにはパスワードを入力してください");
 
     if (!allowed) {
@@ -173,8 +177,8 @@ export default function EditorPage() {
       return;
     }
 
-    deleteSavedSystem(id);
-    refreshSavedItems();
+    await deleteSavedSystem(id);
+    await refreshSavedItems();
 
     if (category === "system") {
       setSelectedOffensePackageId((current) => (current === id ? "" : current));
@@ -185,7 +189,7 @@ export default function EditorPage() {
     setActionMessage("体系を消去しました。");
   };
 
-  const handleDeletePlay = (id: string) => {
+  const handleDeletePlay = async (id: string) => {
     const allowed = requestActionPassword("プレーを消去するにはパスワードを入力してください");
 
     if (!allowed) {
@@ -193,9 +197,11 @@ export default function EditorPage() {
       return;
     }
 
-    setSavedPlays(deletePlayDraft(id));
-    const nextDeletedSystems = getDeletedSavedSystems();
-    const nextDeletedPlays = getDeletedPlayDrafts();
+    setSavedPlays(await deletePlayDraft(id));
+    const [nextDeletedSystems, nextDeletedPlays] = await Promise.all([
+      getDeletedSavedSystems(),
+      getDeletedPlayDrafts()
+    ]);
     setDeletedItems(
       [
         ...nextDeletedPlays.map((record) => ({

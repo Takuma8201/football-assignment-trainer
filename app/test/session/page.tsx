@@ -212,19 +212,28 @@ export default function TestSessionPage() {
   const fieldRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const testId = new URLSearchParams(window.location.search).get("id");
-    const savedTest = getSavedTests().find((item) => item.id === testId) ?? null;
-    const savedPlays = getPlayDrafts();
-    const selectedPlays = savedTest
-      ? savedTest.playIds
-          .map((playId) => savedPlays.find((play) => play.id === playId) ?? null)
-          .filter((play): play is SavedPlayDraft => Boolean(play))
-      : [];
+    const load = async () => {
+      const testId = new URLSearchParams(window.location.search).get("id");
+      const [savedTests, savedPlays, nextOffensePackages, nextDefenseSystems] = await Promise.all([
+        getSavedTests(),
+        getPlayDrafts(),
+        getOffensePackages(),
+        getDefenseSystems()
+      ]);
+      const savedTest = savedTests.find((item) => item.id === testId) ?? null;
+      const selectedPlays = savedTest
+        ? savedTest.playIds
+            .map((playId) => savedPlays.find((play) => play.id === playId) ?? null)
+            .filter((play): play is SavedPlayDraft => Boolean(play))
+        : [];
 
-    setCurrentTest(savedTest);
-    setPlays(savedTest?.orderMode === "random" ? shuffle(selectedPlays) : selectedPlays);
-    setOffensePackages(getOffensePackages());
-    setDefenseSystems(getDefenseSystems());
+      setCurrentTest(savedTest);
+      setPlays(savedTest?.orderMode === "random" ? shuffle(selectedPlays) : selectedPlays);
+      setOffensePackages(nextOffensePackages);
+      setDefenseSystems(nextDefenseSystems);
+    };
+
+    void load();
   }, []);
 
   const currentPlay = plays[currentIndex] ?? null;

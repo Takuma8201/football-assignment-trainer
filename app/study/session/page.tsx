@@ -205,11 +205,19 @@ export default function StudySessionPage() {
   const fieldRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const selection = getStudySelection();
-    const nextPlays = getPlayDrafts().filter((play) => selection.playIds.includes(play.id));
-    setPlays(nextPlays);
-    setOffensePackages(getOffensePackages());
-    setDefenseSystems(getDefenseSystems());
+    const load = async () => {
+      const selection = getStudySelection();
+      const [allPlays, nextOffensePackages, nextDefenseSystems] = await Promise.all([
+        getPlayDrafts(),
+        getOffensePackages(),
+        getDefenseSystems()
+      ]);
+      setPlays(allPlays.filter((play) => selection.playIds.includes(play.id)));
+      setOffensePackages(nextOffensePackages);
+      setDefenseSystems(nextDefenseSystems);
+    };
+
+    void load();
   }, []);
 
   const currentPlay = plays[currentIndex] ?? null;

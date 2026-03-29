@@ -10,26 +10,27 @@ export default function TestPage() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const refresh = () => setTests(getSavedTests());
+    const refresh = async () => setTests(await getSavedTests());
 
-    refresh();
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", refresh);
+    void refresh();
+    const handleRefresh = () => void refresh();
+    window.addEventListener("focus", handleRefresh);
+    document.addEventListener("visibilitychange", handleRefresh);
 
     return () => {
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", handleRefresh);
+      document.removeEventListener("visibilitychange", handleRefresh);
     };
   }, []);
 
-  const handleDelete = (test: SavedTest) => {
+  const handleDelete = async (test: SavedTest) => {
     const confirmed = requestActionPassword("テストを削除するにはパスワードを入力してください");
     if (!confirmed) {
       setMessage("パスワードが違うため、テストは削除されませんでした。");
       return;
     }
 
-    setTests(deleteTest(test.id));
+    setTests(await deleteTest(test.id));
     setMessage(`「${test.name}」を削除しました。`);
   };
 

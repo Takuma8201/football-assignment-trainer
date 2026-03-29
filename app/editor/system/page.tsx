@@ -6,10 +6,10 @@ import { SystemEditorField } from "@/components/system-editor-field";
 import { requestActionPassword } from "@/lib/action-password";
 import {
   getOffensePackages,
-  OffenseVariant,
+  type OffenseVariant,
   saveOffensePackage,
-  SavedOffensePackage,
-  SavedPlayer
+  type SavedOffensePackage,
+  type SavedPlayer
 } from "@/lib/system-storage";
 
 const defaultPlayers: SavedPlayer[] = [
@@ -31,23 +31,27 @@ export default function EditorSystemPage() {
   const [editingPackage, setEditingPackage] = useState<SavedOffensePackage | null>(null);
 
   useEffect(() => {
-    const editingId = new URLSearchParams(window.location.search).get("id");
+    const load = async () => {
+      const editingId = new URLSearchParams(window.location.search).get("id");
 
-    if (!editingId) {
-      setEditingPackage(null);
-      setPlayers(clonePlayers(defaultPlayers));
-      return;
-    }
+      if (!editingId) {
+        setEditingPackage(null);
+        setPlayers(clonePlayers(defaultPlayers));
+        return;
+      }
 
-    const allowed = requestActionPassword("体系を編集するにはパスワードを入力してください");
-    if (!allowed) {
-      window.location.replace("/editor");
-      return;
-    }
+      const allowed = requestActionPassword("体系を編集するにはパスワードを入力してください");
+      if (!allowed) {
+        window.location.replace("/editor");
+        return;
+      }
 
-    const target = getOffensePackages().find((item) => item.id === editingId) ?? null;
-    setEditingPackage(target);
-    setPlayers(clonePlayers(target?.variants.wide ?? defaultPlayers));
+      const target = (await getOffensePackages()).find((item) => item.id === editingId) ?? null;
+      setEditingPackage(target);
+      setPlayers(clonePlayers(target?.variants.wide ?? defaultPlayers));
+    };
+
+    void load();
   }, []);
 
   const savePackage = () => {
@@ -110,7 +114,7 @@ export default function EditorSystemPage() {
 
       <SystemEditorField
         title={editingPackage ? "使用する体系を編集する" : "使用する体系を追加する"}
-        description="体系は1つとして扱います。タイトはズーム表示、ワイドは全体表示です。編集時は保存済みの配置をそのまま直せます。"
+        description="体系は1つとして扱います。タイトはズーム表示、ワイドは全体表示です。"
         palettePlayers={["C", "G", "T", "QB", "WR", "TE", "RB"]}
         players={players}
         onPlayersChange={setPlayers}

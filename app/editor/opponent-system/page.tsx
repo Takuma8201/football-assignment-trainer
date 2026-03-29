@@ -7,11 +7,11 @@ import { requestActionPassword } from "@/lib/action-password";
 import {
   getDefenseSystems,
   getOffensePackages,
-  OffenseVariant,
+  type OffenseVariant,
   saveDefenseSystem,
-  SavedDefenseSystem,
-  SavedOffensePackage,
-  SavedPlayer
+  type SavedDefenseSystem,
+  type SavedOffensePackage,
+  type SavedPlayer
 } from "@/lib/system-storage";
 
 const defenseInitialPlayers: SavedPlayer[] = [
@@ -34,40 +34,46 @@ export default function OpponentSystemPage() {
   const [quoteSourceId, setQuoteSourceId] = useState<string>("");
 
   useEffect(() => {
-    const editingId = new URLSearchParams(window.location.search).get("id");
-    const packageId = new URLSearchParams(window.location.search).get("packageId");
-    const copyFromId = new URLSearchParams(window.location.search).get("copyFrom");
-    const packages = getOffensePackages();
-    const defenseSystems = getDefenseSystems();
-    setOffensePackages(packages);
-    setSavedDefenseSystems(defenseSystems);
+    const load = async () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const editingId = searchParams.get("id");
+      const packageId = searchParams.get("packageId");
+      const copyFromId = searchParams.get("copyFrom");
+      const packages = await getOffensePackages();
+      const defenseSystems = await getDefenseSystems();
 
-    if (!editingId) {
-      setEditingSystem(null);
-      setSelectedPackageId(packageId ?? packages[0]?.id ?? "");
-      setSelectedVariant("tight");
-      setQuoteSourceId(copyFromId ?? "");
-      if (copyFromId) {
-        const source = defenseSystems.find((item) => item.id === copyFromId) ?? null;
-        setDefensePlayers(clonePlayers(source?.players ?? defenseInitialPlayers));
-      } else {
-        setDefensePlayers(clonePlayers(defenseInitialPlayers));
+      setOffensePackages(packages);
+      setSavedDefenseSystems(defenseSystems);
+
+      if (!editingId) {
+        setEditingSystem(null);
+        setSelectedPackageId(packageId ?? packages[0]?.id ?? "");
+        setSelectedVariant("tight");
+        setQuoteSourceId(copyFromId ?? "");
+        if (copyFromId) {
+          const source = defenseSystems.find((item) => item.id === copyFromId) ?? null;
+          setDefensePlayers(clonePlayers(source?.players ?? defenseInitialPlayers));
+        } else {
+          setDefensePlayers(clonePlayers(defenseInitialPlayers));
+        }
+        return;
       }
-      return;
-    }
 
-    const allowed = requestActionPassword("体系を編集するにはパスワードを入力してください");
-    if (!allowed) {
-      window.location.replace("/editor");
-      return;
-    }
+      const allowed = requestActionPassword("体系を編集するにはパスワードを入力してください");
+      if (!allowed) {
+        window.location.replace("/editor");
+        return;
+      }
 
-    const target = defenseSystems.find((item) => item.id === editingId) ?? null;
-    setEditingSystem(target);
-    setSelectedPackageId(target?.offensePackageId ?? packages[0]?.id ?? "");
-    setSelectedVariant(target?.offenseVariant ?? "tight");
-    setDefensePlayers(clonePlayers(target?.players ?? defenseInitialPlayers));
-    setQuoteSourceId("");
+      const target = defenseSystems.find((item) => item.id === editingId) ?? null;
+      setEditingSystem(target);
+      setSelectedPackageId(target?.offensePackageId ?? packages[0]?.id ?? "");
+      setSelectedVariant(target?.offenseVariant ?? "tight");
+      setDefensePlayers(clonePlayers(target?.players ?? defenseInitialPlayers));
+      setQuoteSourceId("");
+    };
+
+    void load();
   }, []);
 
   const selectedPackage = useMemo(
@@ -75,15 +81,10 @@ export default function OpponentSystemPage() {
     [offensePackages, selectedPackageId]
   );
 
-  const lockedOffensePlayers = useMemo<SavedPlayer[]>(() => {
-    return selectedPackage?.variants.wide ?? [];
-  }, [selectedPackage]);
+  const lockedOffensePlayers = useMemo<SavedPlayer[]>(() => selectedPackage?.variants.wide ?? [], [selectedPackage]);
 
   const quoteCandidates = useMemo(
-    () =>
-      savedDefenseSystems.filter((system) =>
-        editingSystem ? system.id !== editingSystem.id : true
-      ),
+    () => savedDefenseSystems.filter((system) => (editingSystem ? system.id !== editingSystem.id : true)),
     [editingSystem, savedDefenseSystems]
   );
 
@@ -97,7 +98,7 @@ export default function OpponentSystemPage() {
   };
 
   const saveDefense = () => {
-    const inputName = window.prompt("体系名を入力してください", editingSystem?.name ?? "ディフェンス体形");
+    const inputName = window.prompt("体系名を入力してください", editingSystem?.name ?? "ディフェンス体系");
     const name = inputName?.trim();
 
     if (!name) {
@@ -134,7 +135,7 @@ export default function OpponentSystemPage() {
             onChange={(event) => setSelectedPackageId(event.target.value)}
             className="ml-3 rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900"
           >
-            {offensePackages.length === 0 && <option value="">保存済みのオフェンス体系がありません</option>}
+            {offensePackages.length === 0 && <option value="">オフェンス体系がありません</option>}
             {offensePackages.map((system) => (
               <option key={system.id} value={system.id}>
                 {system.name}
@@ -171,14 +172,14 @@ export default function OpponentSystemPage() {
 
       {!editingSystem && quoteCandidates.length > 0 && (
         <div className="rounded-3xl border border-stone-200 bg-white px-5 py-4">
-          <p className="text-sm font-semibold text-stone-900">ほかのディフェンス体形を引用する</p>
+          <p className="text-sm font-semibold text-stone-900">ほかのディフェンス体系を引用する</p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <select
               value={quoteSourceId}
               onChange={(event) => setQuoteSourceId(event.target.value)}
               className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900"
             >
-              <option value="">引用する体形を選択</option>
+              <option value="">引用する体系を選択</option>
               {quoteCandidates.map((system) => (
                 <option key={system.id} value={system.id}>
                   {system.name}
@@ -198,15 +199,12 @@ export default function OpponentSystemPage() {
               引用して配置する
             </button>
           </div>
-          <p className="mt-3 text-sm text-stone-600">
-            既存のディフェンス体形を土台にして、そのまま微調整しながら新しく保存できます。
-          </p>
         </div>
       )}
 
       <SystemEditorField
         title={editingSystem ? "相手の体形を編集する" : "相手の体形を追加する"}
-        description="基準のオフェンス体系を表示したまま、ディフェンス側だけを動かして編集できます。保存済みの相手体形もそのまま再編集できます。"
+        description="基準のオフェンス体系を表示したまま、ディフェンス配置だけを編集します。"
         palettePlayers={["CB", "S", "LB", "DE", "DT", "N"]}
         players={defensePlayers}
         onPlayersChange={setDefensePlayers}
