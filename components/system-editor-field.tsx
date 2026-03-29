@@ -290,9 +290,10 @@ export const SystemEditorField = ({
       </section>
 
       <section className="card-surface rounded-[2rem] p-4 sm:p-6">
+        <div className="-mx-2 overflow-x-auto px-2">
         <div
           ref={fieldRef}
-          className="relative mx-auto aspect-[53.3/120] w-full max-w-[420px] overflow-hidden rounded-[1.75rem] border border-white/20 bg-[linear-gradient(180deg,#2d6a3d_0%,#1f4f2e_100%)] sm:max-w-[480px] lg:max-w-[560px]"
+          className="relative mx-auto aspect-[53.3/120] w-[560px] min-w-[560px] overflow-hidden rounded-[1.75rem] border border-white/20 bg-[linear-gradient(180deg,#2d6a3d_0%,#1f4f2e_100%)]"
           onDragOver={(event) => {
             event.preventDefault();
             event.dataTransfer.dropEffect = "copy";
@@ -526,6 +527,7 @@ export const SystemEditorField = ({
               </button>
             ))}
           </div>
+        </div>
         </div>
       </section>
     </div>
