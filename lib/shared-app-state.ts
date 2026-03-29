@@ -38,11 +38,23 @@ const normalizeState = (value: unknown): SharedAppState => {
   };
 };
 
-export const isSharedStorageEnabled = () =>
-  typeof window !== "undefined" && process.env.NEXT_PUBLIC_SHARED_STORAGE_ENABLED === "true";
+const shouldAttemptSharedStorage = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  if (process.env.NEXT_PUBLIC_SHARED_STORAGE_ENABLED === "true") {
+    return true;
+  }
+
+  const host = window.location.hostname;
+  return host.endsWith(".vercel.app") || host !== "localhost";
+};
+
+export const isSharedStorageEnabled = () => shouldAttemptSharedStorage();
 
 const runSyncRequest = (method: "GET" | "POST", state?: SharedAppState) => {
-  if (!isSharedStorageEnabled()) {
+  if (!shouldAttemptSharedStorage()) {
     return null;
   }
 
