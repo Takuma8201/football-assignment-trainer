@@ -1,5 +1,7 @@
 "use client";
 
+import { getDefaultSharedAppState, saveSharedAppState } from "@/lib/shared-app-state";
+
 const STORAGE_KEYS = {
   systems: "football-system-layouts",
   deletedSystems: "football-system-layouts-deleted",
@@ -72,5 +74,14 @@ export const importExportBundle = (bundle: unknown) => {
     }
 
     window.localStorage.setItem(storageKey, JSON.stringify(value));
+  });
+
+  saveSharedAppState({
+    ...getDefaultSharedAppState(),
+    systems: Array.isArray(data.systems) ? data.systems : [],
+    deletedSystems: Array.isArray(data.deletedSystems) ? data.deletedSystems : [],
+    playDrafts: Array.isArray(data.playDrafts) ? data.playDrafts : [],
+    deletedPlayDrafts: Array.isArray(data.deletedPlayDrafts) ? data.deletedPlayDrafts : [],
+    tests: Array.isArray(data.tests) ? data.tests : []
   });
 };
