@@ -290,10 +290,10 @@ export const SystemEditorField = ({
       </section>
 
       <section className="card-surface rounded-[2rem] p-4 sm:p-6">
-        <div className="-mx-2 overflow-x-auto px-2">
+        <div className="-mx-2 overflow-x-auto px-2 sm:mx-0 sm:overflow-visible sm:px-0">
         <div
           ref={fieldRef}
-          className="relative mx-auto aspect-[53.3/120] w-[560px] min-w-[560px] overflow-hidden rounded-[1.75rem] border border-white/20 bg-[linear-gradient(180deg,#2d6a3d_0%,#1f4f2e_100%)]"
+          className="relative mx-auto aspect-[53.3/120] w-[560px] min-w-[560px] overflow-hidden rounded-[1.75rem] border border-white/20 bg-[linear-gradient(180deg,#2d6a3d_0%,#1f4f2e_100%)] sm:w-full sm:min-w-0 sm:max-w-[480px] lg:max-w-[560px]"
           onDragOver={(event) => {
             event.preventDefault();
             event.dataTransfer.dropEffect = "copy";
