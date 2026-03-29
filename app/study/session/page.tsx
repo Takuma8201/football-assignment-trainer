@@ -572,7 +572,7 @@ export default function StudySessionPage() {
             setJudgeSummary("");
             setDragLine(null);
           }}
-          className="relative mx-auto h-[700px] w-full overflow-hidden rounded-[1.75rem] border border-white/20 bg-[linear-gradient(180deg,#2d6a3d_0%,#1f4f2e_100%)]"
+          className="relative mx-auto aspect-[53.3/120] w-full max-w-[420px] overflow-hidden rounded-[1.75rem] border border-white/20 bg-[linear-gradient(180deg,#2d6a3d_0%,#1f4f2e_100%)] sm:max-w-[480px] lg:max-w-[560px]"
         >
           <div
             className="absolute inset-0"
