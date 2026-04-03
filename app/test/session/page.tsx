@@ -203,13 +203,28 @@ export default function TestSessionPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [answerPaths, setAnswerPaths] = useState<PlayerPath[]>([]);
+  const [answerHistory, setAnswerHistory] = useState<PlayerPath[][]>([]);
   const [dragLine, setDragLine] = useState<DragLine | null>(null);
   const [selectedLineType, setSelectedLineType] = useState<SavedLineType>("straight");
   const [judgeResult, setJudgeResult] = useState<JudgeResult | null>(null);
   const [judgeSummary, setJudgeSummary] = useState("");
   const [totalCorrect, setTotalCorrect] = useState(0);
   const [judgedPlayIds, setJudgedPlayIds] = useState<string[]>([]);
+  const [isSessionFinished, setIsSessionFinished] = useState(false);
   const fieldRef = useRef<HTMLDivElement | null>(null);
+
+  const clonePaths = (paths: PlayerPath[]) =>
+    paths.map((path) => ({
+      ...path,
+      points: path.points.map((point) => ({ ...point })),
+      controlPoint: path.controlPoint ? { ...path.controlPoint } : undefined,
+      leftBranchPoint: path.leftBranchPoint ? { ...path.leftBranchPoint } : undefined,
+      rightBranchPoint: path.rightBranchPoint ? { ...path.rightBranchPoint } : undefined
+    }));
+
+  const pushAnswerHistory = (snapshot: PlayerPath[]) => {
+    setAnswerHistory((current) => [...current, clonePaths(snapshot)].slice(-30));
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -277,6 +292,7 @@ export default function TestSessionPage() {
   useEffect(() => {
     setSelectedPlayerId(null);
     setAnswerPaths([]);
+    setAnswerHistory([]);
     setDragLine(null);
     setJudgeResult(null);
     setJudgeSummary("");
@@ -287,6 +303,13 @@ export default function TestSessionPage() {
       setSelectedLineType(selectedPath.lineType);
     }
   }, [selectedPath?.lineType]);
+
+  useEffect(() => {
+    setCurrentIndex(0);
+    setTotalCorrect(0);
+    setJudgedPlayIds([]);
+    setIsSessionFinished(false);
+  }, [currentTest?.id, plays]);
 
   const getFieldPointFromPointer = (clientX: number, clientY: number) => {
     const field = fieldRef.current;
@@ -434,9 +457,35 @@ export default function TestSessionPage() {
     }
   };
 
+  const undoOneStep = () => {
+    setAnswerHistory((current) => {
+      if (current.length === 0) {
+        return current;
+      }
+
+      const previous = current[current.length - 1];
+      setAnswerPaths(clonePaths(previous));
+      setJudgeResult(null);
+      setJudgeSummary("");
+      return current.slice(0, -1);
+    });
+  };
+
   const totalQuestions = plays.reduce((sum, play) => sum + play.paths.length, 0);
   const selectedPathGeometry =
     selectedPlayer && selectedPath ? getRenderedPathGeometry(selectedPlayer, selectedPath) : null;
+  const handleNextPlay = () => {
+    if (plays.length === 0) {
+      return;
+    }
+
+    if (currentIndex + 1 >= plays.length) {
+      setIsSessionFinished(true);
+      return;
+    }
+
+    setCurrentIndex((current) => current + 1);
+  };
 
   if (!currentTest) {
     return (
@@ -449,6 +498,41 @@ export default function TestSessionPage() {
               className="rounded-full border border-stone-300 bg-white px-5 py-3 text-sm font-semibold text-stone-900"
             >
               テスト一覧へ戻る
+            </Link>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (isSessionFinished) {
+    return (
+      <div className="mx-auto max-w-4xl">
+        <section className="card-surface rounded-[2rem] px-6 py-8 sm:px-8 sm:py-10">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-800">Test Result</p>
+          <h1 className="mt-3 text-3xl font-bold text-stone-900">テストが終了しました</h1>
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-3xl border border-stone-200 bg-white px-5 py-4">
+              <p className="text-sm text-stone-500">累計正答数</p>
+              <p className="mt-2 text-2xl font-bold text-stone-900">
+                {totalCorrect} / {totalQuestions}
+              </p>
+            </div>
+            <div className="rounded-3xl border border-stone-200 bg-white px-5 py-4">
+              <p className="text-sm text-stone-500">判定したプレー数</p>
+              <p className="mt-2 text-2xl font-bold text-stone-900">{judgedPlayIds.length}</p>
+            </div>
+            <div className="rounded-3xl border border-stone-200 bg-white px-5 py-4">
+              <p className="text-sm text-stone-500">合計プレー数</p>
+              <p className="mt-2 text-2xl font-bold text-stone-900">{plays.length}</p>
+            </div>
+          </div>
+          <div className="mt-8">
+            <Link
+              href="/test"
+              className="inline-flex rounded-full border border-stone-300 bg-white px-5 py-3 text-sm font-semibold text-stone-900"
+            >
+              選択に戻る
             </Link>
           </div>
         </section>
@@ -491,6 +575,7 @@ export default function TestSessionPage() {
           <button
             type="button"
             onClick={() => {
+              pushAnswerHistory(answerPaths);
               setAnswerPaths([]);
               setJudgeResult(null);
               setJudgeSummary("");
@@ -508,7 +593,14 @@ export default function TestSessionPage() {
           </button>
           <button
             type="button"
-            onClick={() => setCurrentIndex((current) => (plays.length === 0 ? 0 : Math.min(current + 1, plays.length - 1)))}
+            onClick={undoOneStep}
+            className="rounded-full border border-stone-300 bg-white px-5 py-3 text-sm font-semibold text-stone-900"
+          >
+            一つ戻る
+          </button>
+          <button
+            type="button"
+            onClick={handleNextPlay}
             className="rounded-full border border-stone-300 bg-white px-5 py-3 text-sm font-semibold text-stone-900"
           >
             次のプレー
@@ -576,6 +668,7 @@ export default function TestSessionPage() {
               ? getGuidedBlockGeometry(nextPoint, { x: snapTarget.left, y: snapTarget.top }, startPoint).contactPoint
               : nextPoint;
 
+            pushAnswerHistory(answerPaths);
             if (dragLine.handleType === "main") {
               setAnswerPaths((current) => [
                 ...current.filter((item) => item.playerId !== selectedPlayer.id),

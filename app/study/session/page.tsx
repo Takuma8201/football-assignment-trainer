@@ -198,11 +198,29 @@ export default function StudySessionPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [answerPaths, setAnswerPaths] = useState<PlayerPath[]>([]);
+  const [answerHistory, setAnswerHistory] = useState<PlayerPath[][]>([]);
   const [dragLine, setDragLine] = useState<DragLine | null>(null);
   const [selectedLineType, setSelectedLineType] = useState<SavedLineType>("straight");
   const [judgeResult, setJudgeResult] = useState<JudgeResult | null>(null);
   const [judgeSummary, setJudgeSummary] = useState("");
+  const [showCorrectAnswer, setShowCorrectAnswer] = useState(false);
+  const [totalCorrect, setTotalCorrect] = useState(0);
+  const [judgedPlayIds, setJudgedPlayIds] = useState<string[]>([]);
+  const [isSessionFinished, setIsSessionFinished] = useState(false);
   const fieldRef = useRef<HTMLDivElement | null>(null);
+
+  const clonePaths = (paths: PlayerPath[]) =>
+    paths.map((path) => ({
+      ...path,
+      points: path.points.map((point) => ({ ...point })),
+      controlPoint: path.controlPoint ? { ...path.controlPoint } : undefined,
+      leftBranchPoint: path.leftBranchPoint ? { ...path.leftBranchPoint } : undefined,
+      rightBranchPoint: path.rightBranchPoint ? { ...path.rightBranchPoint } : undefined
+    }));
+
+  const pushAnswerHistory = (snapshot: PlayerPath[]) => {
+    setAnswerHistory((current) => [...current, clonePaths(snapshot)].slice(-30));
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -260,10 +278,19 @@ export default function StudySessionPage() {
   useEffect(() => {
     setSelectedPlayerId(null);
     setAnswerPaths([]);
+    setAnswerHistory([]);
     setDragLine(null);
     setJudgeResult(null);
     setJudgeSummary("");
+    setShowCorrectAnswer(false);
   }, [currentIndex]);
+
+  useEffect(() => {
+    setCurrentIndex(0);
+    setTotalCorrect(0);
+    setJudgedPlayIds([]);
+    setIsSessionFinished(false);
+  }, [plays]);
 
   useEffect(() => {
     if (selectedPath?.lineType) {
@@ -410,10 +437,78 @@ export default function StudySessionPage() {
     );
     setJudgeResult(result);
     setJudgeSummary(`${correct} / ${total} 正解`);
+
+    if (!judgedPlayIds.includes(currentPlay.id)) {
+      setJudgedPlayIds((current) => [...current, currentPlay.id]);
+      setTotalCorrect((current) => current + correct);
+    }
+  };
+
+  const undoOneStep = () => {
+    setAnswerHistory((current) => {
+      if (current.length === 0) {
+        return current;
+      }
+
+      const previous = current[current.length - 1];
+      setAnswerPaths(clonePaths(previous));
+      setJudgeResult(null);
+      setJudgeSummary("");
+      setShowCorrectAnswer(false);
+      return current.slice(0, -1);
+    });
   };
 
   const selectedPathGeometry =
     selectedPlayer && selectedPath ? getRenderedPathGeometry(selectedPlayer, selectedPath) : null;
+  const totalQuestions = plays.reduce((sum, play) => sum + play.paths.length, 0);
+  const handleNextPlay = () => {
+    if (plays.length === 0) {
+      return;
+    }
+
+    if (currentIndex + 1 >= plays.length) {
+      setIsSessionFinished(true);
+      return;
+    }
+
+    setCurrentIndex((current) => current + 1);
+  };
+
+  if (isSessionFinished) {
+    return (
+      <div className="mx-auto max-w-4xl">
+        <section className="card-surface rounded-[2rem] px-6 py-8 sm:px-8 sm:py-10">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-800">Study Result</p>
+          <h1 className="mt-3 text-3xl font-bold text-stone-900">学習が終了しました</h1>
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-3xl border border-stone-200 bg-white px-5 py-4">
+              <p className="text-sm text-stone-500">累計正答数</p>
+              <p className="mt-2 text-2xl font-bold text-stone-900">
+                {totalCorrect} / {totalQuestions}
+              </p>
+            </div>
+            <div className="rounded-3xl border border-stone-200 bg-white px-5 py-4">
+              <p className="text-sm text-stone-500">判定したプレー数</p>
+              <p className="mt-2 text-2xl font-bold text-stone-900">{judgedPlayIds.length}</p>
+            </div>
+            <div className="rounded-3xl border border-stone-200 bg-white px-5 py-4">
+              <p className="text-sm text-stone-500">合計プレー数</p>
+              <p className="mt-2 text-2xl font-bold text-stone-900">{plays.length}</p>
+            </div>
+          </div>
+          <div className="mt-8">
+            <Link
+              href="/study"
+              className="inline-flex rounded-full border border-stone-300 bg-white px-5 py-3 text-sm font-semibold text-stone-900"
+            >
+              選択に戻る
+            </Link>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -449,9 +544,11 @@ export default function StudySessionPage() {
           <button
             type="button"
             onClick={() => {
+              pushAnswerHistory(answerPaths);
               setAnswerPaths([]);
               setJudgeResult(null);
               setJudgeSummary("");
+              setShowCorrectAnswer(false);
             }}
             className="rounded-full border border-stone-300 bg-white px-5 py-3 text-sm font-semibold text-stone-900"
           >
@@ -466,7 +563,23 @@ export default function StudySessionPage() {
           </button>
           <button
             type="button"
-            onClick={() => setCurrentIndex((current) => (plays.length === 0 ? 0 : (current + 1) % plays.length))}
+            onClick={undoOneStep}
+            className="rounded-full border border-stone-300 bg-white px-5 py-3 text-sm font-semibold text-stone-900"
+          >
+            一つ戻る
+          </button>
+          {judgeResult && (
+            <button
+              type="button"
+              onClick={() => setShowCorrectAnswer((current) => !current)}
+              className="rounded-full border border-stone-300 bg-white px-5 py-3 text-sm font-semibold text-stone-900"
+            >
+              {showCorrectAnswer ? "正答を隠す" : "正答を表示する"}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleNextPlay}
             className="rounded-full border border-stone-300 bg-white px-5 py-3 text-sm font-semibold text-stone-900"
           >
             次のプレー
@@ -474,11 +587,16 @@ export default function StudySessionPage() {
         </div>
       </div>
 
-      {judgeSummary && (
-        <div className="mb-6 rounded-3xl border border-stone-200 bg-white px-5 py-4 text-sm font-semibold text-stone-900">
-          {judgeSummary}
+      <div className="mb-6 flex flex-wrap gap-3">
+        <div className="rounded-3xl border border-stone-200 bg-white px-5 py-4 text-sm font-semibold text-stone-900">
+          累計正解: {totalCorrect} / {totalQuestions}
         </div>
-      )}
+        {judgeSummary && (
+          <div className="rounded-3xl border border-stone-200 bg-white px-5 py-4 text-sm font-semibold text-stone-900">
+            {judgeSummary}
+          </div>
+        )}
+      </div>
 
       <div className="card-surface mx-auto max-w-5xl rounded-[2rem] p-6">
         <div
@@ -529,6 +647,7 @@ export default function StudySessionPage() {
               ? getGuidedBlockGeometry(point, { x: snapTarget.left, y: snapTarget.top }, startPoint).contactPoint
               : point;
 
+            pushAnswerHistory(answerPaths);
             if (dragLine.handleType === "main") {
               setAnswerPaths((current) => {
                 const nextPath: PlayerPath = {
@@ -570,6 +689,7 @@ export default function StudySessionPage() {
 
             setJudgeResult(null);
             setJudgeSummary("");
+            setShowCorrectAnswer(false);
             setDragLine(null);
           }}
           className="relative mx-auto h-[700px] w-full overflow-hidden rounded-[1.75rem] border border-white/20 bg-[linear-gradient(180deg,#2d6a3d_0%,#1f4f2e_100%)]"
@@ -650,6 +770,71 @@ export default function StudySessionPage() {
             </div>
 
             <svg className="pointer-events-none absolute inset-0 z-30 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+              {showCorrectAnswer &&
+                currentPlay?.paths.map((path) => {
+                  const player = editablePlayers.find((item) => item.id === path.playerId);
+                  if (!player) {
+                    return null;
+                  }
+
+                  const geometry = getRenderedPathGeometry(player, path);
+                  if (!geometry.startPoint || !geometry.endPoint) {
+                    return null;
+                  }
+
+                  const lineType = path.lineType ?? "straight";
+                  return (
+                    <g key={`correct-${player.id}`} opacity="0.9">
+                      <path
+                        d={getLinePathD(geometry.startPoint, geometry.endPoint, lineType, path.controlPoint)}
+                        fill="none"
+                        stroke="#38bdf8"
+                        strokeWidth="1.1"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                      {geometry.barStart && geometry.barEnd && (
+                        <>
+                          <line
+                            x1={geometry.barStart.x}
+                            y1={geometry.barStart.y}
+                            x2={geometry.barEnd.x}
+                            y2={geometry.barEnd.y}
+                            fill="none"
+                            stroke="#38bdf8"
+                            strokeWidth="1.1"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            vectorEffect="non-scaling-stroke"
+                          />
+                          {geometry.leftBranchPoint && (
+                            <path
+                              d={getLinePathD(geometry.barStart, geometry.leftBranchPoint, lineType)}
+                              fill="none"
+                              stroke="#38bdf8"
+                              strokeWidth="1.1"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              vectorEffect="non-scaling-stroke"
+                            />
+                          )}
+                          {geometry.rightBranchPoint && (
+                            <path
+                              d={getLinePathD(geometry.barEnd, geometry.rightBranchPoint, lineType)}
+                              fill="none"
+                              stroke="#38bdf8"
+                              strokeWidth="1.1"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              vectorEffect="non-scaling-stroke"
+                            />
+                          )}
+                        </>
+                      )}
+                    </g>
+                  );
+                })}
               {editablePlayers.map((player) => {
                 const path = answerPaths.find((item) => item.playerId === player.id);
                 const geometry = getRenderedPathGeometry(player, path);
